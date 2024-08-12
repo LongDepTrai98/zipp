@@ -3,6 +3,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <sstream>
+
 #define BUF_SIZE 8192
 #define MAX_NAMELEN 256
 namespace ZIPP
@@ -21,6 +23,7 @@ namespace ZIPP
     bool zipp::unZip(const std::string& path,
         const std::string& directory)
     {
+        m_zipp_state = ZIPP_STATE::UNZIP; 
         m_zip = unzOpen64(path.c_str());
         const auto& mini_result = create(m_zip, 
             directory); 
@@ -35,6 +38,7 @@ namespace ZIPP
     bool zipp::unZipFromStream(std::istream& buffer,
         const std::string& directory)
     {
+        m_zipp_state = ZIPP_STATE::UNZIP;
         //init stream 
         if (!initWithStream(buffer)) return false; 
         bool isCreate =  create(m_zip, directory) == ZIPP_STATUS::SUCCESS || create(m_zip, directory) == ZIPP_STATUS::SUCCESS_EOF;
@@ -45,6 +49,7 @@ namespace ZIPP
     bool zipp::unZipFromBuffer(const std::string& buffer,
         const std::string& directory)
     {
+        m_zipp_state = ZIPP_STATE::UNZIP;
         std::istringstream iss(buffer);
         const size_t& size = buffer.length(); 
         if (!initWithStream(iss)) return false; 
@@ -55,17 +60,36 @@ namespace ZIPP
 
     void zipp::release()
     {
-        if (m_zip != NULL)
+        switch (m_zipp_state)
         {
-            unzClose(m_zip);
-            m_zip = NULL;
+        case ZIPP_STATE::CREATE:
+        {
+            if (m_zip != NULL)
+            {
+                zipClose(m_zip, NULL); 
+                m_zip = NULL; 
+            }
+            break;
         }
+        case ZIPP_STATE::UNZIP:
+        {
+            if (m_zip != NULL)
+            {
+                unzClose(m_zip);
+                m_zip = NULL;
+            }
 
-        if (m_zipmem.base != NULL)
-        {
-            free(m_zipmem.base);
-            m_zipmem.base = NULL;
+            if (m_zipmem.base != NULL)
+            {
+                free(m_zipmem.base);
+                m_zipmem.base = NULL;
+            }
+            break;
         }
+        default:
+            break;
+        }
+      
     }
 
     std::string zipp::getFileName(unzFile zfile, bool& isutf8)
@@ -220,5 +244,119 @@ namespace ZIPP
         } while (mini_result == ZIPP_STATUS::SUCCESS);
 
         return mini_result;
-    }; 
+    }
+    bool zipp::zip_add_dir(zipFile zfile, const char* dirname)
+    {
+        char* temp = NULL;
+        size_t  len;
+        int     ret;
+
+        if (zfile == NULL || dirname == NULL || *dirname == '\0')
+            return false;
+
+        len = strlen(dirname);
+        temp = (char*)calloc(1, len + 2);
+        memcpy(temp, dirname, len + 2);
+        if (temp[len - 1] != '/') {
+            temp[len] = '/';
+            temp[len + 1] = '\0';
+        }
+        else {
+            temp[len] = '\0';
+        }
+
+        ret = zipOpenNewFileInZip64(zfile, temp, NULL, NULL, 0, NULL, 0, NULL, 0, 0, 0);
+        if (ret != ZIP_OK)
+            return false;
+        free(temp);
+        zipCloseFileInZip(zfile);
+        return ret == ZIP_OK ? true : false;
+    }
+    bool zipp::zip_read_buf(const std::string& filename, 
+        std::string& buffer)
+    {
+        if (filename.empty() || (filename.size() == 1 && filename[0] == '-'))
+        {
+            return false; 
+        }
+        std::ifstream stream{ filename, std::ios_base::in | std::ios_base::binary };
+        if (!stream) {
+            return {};
+        }
+        stream.exceptions(std::ifstream::failbit);
+        buffer = std::string{ std::istreambuf_iterator<char>(stream.rdbuf()),
+                           std::istreambuf_iterator<char>() };
+        stream.close();
+        return true;
+    }
+   
+    bool zipp::zip_add_buf(zipFile zfile, const char* zfilename, const unsigned char* buf, size_t buflen)
+    {
+        int ret;
+        if (zfile == NULL || buf == NULL || buflen == 0)
+            return false;
+
+        ret = zipOpenNewFileInZip64(zfile, zfilename, NULL, NULL, 0, NULL, 0, NULL,
+            Z_DEFLATED, Z_DEFAULT_COMPRESSION, (buflen > 0xffffffff) ? 1 : 0);
+        if (ret != ZIP_OK)
+            return false;
+
+        ret = zipWriteInFileInZip(zfile, buf, buflen);
+        zipCloseFileInZip(zfile);
+        return ret == ZIP_OK ? true : false;
+    }
+
+    bool zipp::createZip(const std::string& zipname, 
+        std::string folder)
+    {
+        m_zipp_state = ZIPP_STATE::CREATE;
+        m_zip = zipOpen64(zipname.c_str(), APPEND_STATUS_CREATE);
+        if (!m_zip)
+        {
+            throw std::exception("Couldn't open for zipping");
+        }
+        if (std::filesystem::is_directory(folder))
+        {
+            if (folder[folder.size() - 1] != '\\')
+            {
+                folder += '\\';
+            }
+            //recursion read all file of folder
+            for (std::filesystem::recursive_directory_iterator i(folder), end; i != end; ++i)
+            {
+                if (!is_directory(i->path()))
+                {
+                    auto fullpath = i->path().string();
+                    auto subpath = fullpath.substr(folder.length(), fullpath.size());
+                    std::string buffer;
+                    if (zip_read_buf(fullpath, buffer))
+                    {
+                        zip_add_buf(m_zip,
+                            subpath.c_str(),
+                            (const unsigned char*)buffer.c_str(),
+                            buffer.length());
+                    }
+                }
+            }
+        }
+        else
+        {
+            //is file 
+            if (std::filesystem::is_regular_file(folder))
+            {
+                std::filesystem::path path(folder); 
+                std::string buffer; 
+                if (zip_read_buf(folder, buffer))
+                {
+                    zip_add_buf(m_zip,
+                        path.filename().string().c_str(),
+                        (const unsigned char*)buffer.c_str(),
+                        buffer.length());
+                }
+            }
+        }
+        release();
+        return true;
+    }
+    ;
 }

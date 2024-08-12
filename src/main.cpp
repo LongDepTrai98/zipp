@@ -1,6 +1,7 @@
 #include <iostream> 
 #include <sstream>
 #include <zipp.hpp>
+#include <filesystem>
 using namespace ZIPP; 
 
 static std::string ReadFile(const std::string& filename) {
@@ -21,18 +22,18 @@ static std::string ReadFile(const std::string& filename) {
 
 int main()
 {
-	//file 
 	std::string path = "meme.zip";
-	zipp zip; 
+	zipp zip;
 	if (!zip.unZip(path, "unzip"))
 	{
-		std::cout << "failed"; 
+		std::cout << "failed";
 	}
 	//memory 
-	std::string buffer = ReadFile(path); 
+	std::string buffer = ReadFile(path);
 	if (!zip.unZipFromBuffer(buffer, "buffer"))
 	{
-		std::cout << "failed"; 
+		std::cout << "failed";
 	}
+	//create zip 
 	return 0; 
 }

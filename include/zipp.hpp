@@ -12,6 +12,13 @@ enum class ZIPP_STATUS
 	SUCCESS,
 	SUCCESS_EOF
 };
+
+enum class ZIPP_STATE
+{
+	CREATE,
+	UNZIP
+};
+
 namespace ZIPP
 {
 	class zipp
@@ -26,8 +33,11 @@ namespace ZIPP
 			const std::string& directory); 
 		bool unZipFromBuffer(const std::string&,
 			const std::string&);
+		bool createZip(const std::string&, 
+			std::string folder);
 		void release();
 	protected:
+		//unzip
 		std::string getFileName(unzFile,
 			bool&);
 		bool isDir(unzFile zfile);
@@ -38,12 +48,17 @@ namespace ZIPP
 		ZIPP_STATUS readBuffer(unzFile zfile, std::string& buffer);
 		ZIPP_STATUS create(unzFile&,
 			const std::string&);
-	protected: 
+		//create zip
+		bool zip_add_dir(zipFile zfile, const char* dirname);
+		bool zip_read_buf(const std::string& filename, 
+			std::string& buffer);
+		bool zip_add_buf(zipFile zfile, const char* zfilename, const unsigned char* buf, size_t buflen);
 		bool initWithStream(std::istream&);
 	protected:
 		ourmemory_t m_zipmem;
 		zlib_filefunc_def m_filefunc;
-		unzFile m_zip; 
+		zipFile m_zip;
+		ZIPP_STATE m_zipp_state; 
 	};
 }
 #endif // !_MINI_PP_
