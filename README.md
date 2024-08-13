@@ -18,7 +18,7 @@ a simple project C++ wrapper around minizip compression library
 using namespace ZIPP; 
 ```
 * main.cpp
-```
+``` C++
 int main()
 {
   //file 
