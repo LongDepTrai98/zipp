@@ -28,11 +28,15 @@ add_library(${PROJECT_NAME} STATIC
 )
 
 add_executable(unzip
-    src/unzip.cpp
+    example/unzip.cpp
 )
 
 add_executable(zip
-    src/zip.cpp
+    example/zip.cpp
+)
+
+add_executable(callback
+    example/callback.cpp
 )
 
 target_include_directories(${PROJECT_NAME} 
@@ -53,6 +57,12 @@ target_include_directories(zip
     PRIVATE include
 )
 
+target_include_directories(callback
+    PRIVATE lib
+    PRIVATE lib/zlib/include
+    PRIVATE include
+)
+
 target_link_libraries(unzip
     ${PROJECT_NAME}
     debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
@@ -60,6 +70,12 @@ target_link_libraries(unzip
 )
 
 target_link_libraries(zip
+    ${PROJECT_NAME}
+    debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
+    optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib
+)
+
+target_link_libraries(callback
     ${PROJECT_NAME}
     debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
     optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib

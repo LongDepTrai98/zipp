@@ -2,6 +2,7 @@
 #include <sstream>
 #include <zipp.hpp>
 #include <filesystem>
+#include <functional>
 using namespace ZIPP; 
 
 static std::string ReadFile(const std::string& filename) {
@@ -19,7 +20,6 @@ static std::string ReadFile(const std::string& filename) {
 	stream.close();
 	return buffer;
 }
-
 int main()
 {
 	std::string path = "meme.zip";
@@ -34,6 +34,6 @@ int main()
 	{
 		std::cout << "failed";
 	}
-	//create zip 
+	//create zip
 	return 0; 
 }
