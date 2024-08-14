@@ -18,7 +18,7 @@ a simple project C++ wrapper around minizip compression library
 #include <zipp.hpp>
 using namespace ZIPP; 
 ```
-*unzip.cpp
+* unzip.cpp
 ``` C++
 int main()
 {
@@ -38,7 +38,7 @@ int main()
 	return 0; 
 }
 ```
-*zipp.cpp
+* zipp.cpp
 ``` C++
 int main()
 {
