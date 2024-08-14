@@ -315,6 +315,8 @@ namespace ZIPP
         {
             throw std::exception("Couldn't open for zipping");
         }
+       
+
         if (std::filesystem::is_directory(folder))
         {
             if (folder[folder.size() - 1] != '\\')

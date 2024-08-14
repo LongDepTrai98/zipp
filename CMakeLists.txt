@@ -2,10 +2,9 @@ cmake_minimum_required(VERSION 3.0)
 set(CMAKE_CXX_STANDARD 17)
 project(zipp)
 
-add_executable(${PROJECT_NAME}
+add_library(${PROJECT_NAME} STATIC 
     include/zipp.hpp
     src/zipp.cpp
-    src/main.cpp
     lib/minizip/minishared.h
     lib/minizip/tmzip.h
     lib/minizip/unzip.h
@@ -28,16 +27,44 @@ add_executable(${PROJECT_NAME}
     lib/minizip/iowin32.c
 )
 
+add_executable(unzip
+    src/unzip.cpp
+)
+
+add_executable(zip
+    src/zip.cpp
+)
+
 target_include_directories(${PROJECT_NAME} 
     PRIVATE lib
     PRIVATE lib/zlib/include
     PRIVATE include
 )
 
-target_link_libraries(${PROJECT_NAME}
+target_include_directories(unzip
+    PRIVATE lib
+    PRIVATE lib/zlib/include
+    PRIVATE include
+)
+
+target_include_directories(zip
+    PRIVATE lib
+    PRIVATE lib/zlib/include
+    PRIVATE include
+)
+
+target_link_libraries(unzip
+    ${PROJECT_NAME}
     debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
     optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib
 )
+
+target_link_libraries(zip
+    ${PROJECT_NAME}
+    debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
+    optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib
+)
+
 
 add_compile_definitions(NOMAIN)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

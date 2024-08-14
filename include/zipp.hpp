@@ -6,6 +6,10 @@
 #include <minizip/unzip.h>
 #include <minizip/ioapi_mem.h>
 #include <fstream>
+#ifndef ERROR
+#undef ERROR
+#endif // !ERROR
+
 enum class ZIPP_STATUS
 {
 	ERROR,
