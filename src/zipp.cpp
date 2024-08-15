@@ -20,12 +20,12 @@ namespace ZIPP
         release(); 
     }
 
-    bool zipp::unZip(const std::string& path,
-        const std::string& directory,
+    bool zipp::unZip(const PATH& path,
+        const PATH& directory,
         CALLBACK callback)
     {
-        m_zipp_state = ZIPP_STATE::UNZIP; 
-        m_zip = unzOpen64(path.c_str());
+        m_zipp_state = ZIPP_STATE::UNZIP;
+        m_zip = unzOpen64(path.string().c_str());
         const auto& mini_result = create(m_zip, 
             directory,
             callback); 
@@ -38,7 +38,7 @@ namespace ZIPP
     }
 
     bool zipp::unZipFromStream(std::istream& buffer,
-        const std::string& directory,
+        const PATH& directory,
         CALLBACK callback)
     {
         m_zipp_state = ZIPP_STATE::UNZIP;
@@ -50,7 +50,7 @@ namespace ZIPP
     }
 
     bool zipp::unZipFromBuffer(const std::string& buffer,
-        const std::string& directory,
+        const PATH& directory,
         CALLBACK callback)
     {
         m_zipp_state = ZIPP_STATE::UNZIP;
@@ -176,12 +176,39 @@ namespace ZIPP
         return result;
     }
 
-    void zipp::createFile(const std::string& file,
+    void zipp::createFile(const PATH& file,
         const std::string& buffer)
     {
+        if (!std::filesystem::exists(file.parent_path()))
+        {
+            std::filesystem::create_directories(file.parent_path());
+        }
         std::ofstream f(file, std::ofstream::binary | std::ofstream::out);
-        f << buffer;
+        if(f) f << buffer;
         f.close();
+    }
+
+    void zipp::readBuffFromFile(const PATH& fullpath,
+        const PATH& file, 
+        CALLBACK& callback)
+    {
+        std::string buffer;
+        zip_read_buf(fullpath, buffer); 
+        if (zip_add_buf(m_zip,
+            file.string().c_str(),
+            (const unsigned char*)buffer.c_str(),
+            (uint32_t)buffer.length()))
+        {
+            if (callback)
+            {
+                const auto& file_size = std::filesystem::file_size(fullpath);
+                if (callback)
+                {
+                    callback(file.string(),
+                        file_size);
+                }
+            }
+        }
     }
 
     bool zipp::initWithStream(std::istream& stream)
@@ -207,16 +234,14 @@ namespace ZIPP
     }
 
     ZIPP_STATUS zipp::create(unzFile& uzfile,
-        const std::string& directory,
+        const PATH& directory,
         CALLBACK callback)
     {
         bool isUtf8{ false };
         uint64_t len;
         ZIPP_STATUS mini_result = ZIPP_STATUS::SUCCESS;
         std::string filename;
-        std::string tmp_directory; 
-        directory.empty() ? tmp_directory = directory : tmp_directory = directory + "/"; 
-        std::filesystem::create_directories(directory); 
+        if(!directory.empty())std::filesystem::create_directories(directory);
         if (uzfile == nullptr)
             throw std::exception("Couldn't open zip file");
 
@@ -224,8 +249,8 @@ namespace ZIPP
 
             filename = getFileName(uzfile, isUtf8);
             if (filename.empty()) continue;
-            std::string folder;
-            folder = tmp_directory + filename; 
+            PATH folder; 
+            folder = directory / filename;
             if (isDir(uzfile)) 
             {
                 try
@@ -239,11 +264,11 @@ namespace ZIPP
                     std::cout << e.what();
                 }
             }
-            len = fileSize(uzfile);
             std::string buffer;
             mini_result = readBuffer(uzfile, buffer);
             if (callback)
             {
+                len = fileSize(uzfile);
                 callback(filename,len);
             }
             createFile(folder, buffer);
@@ -252,7 +277,6 @@ namespace ZIPP
             }
 
         } while (mini_result == ZIPP_STATUS::SUCCESS);
-
         return mini_result;
     }
     bool zipp::zip_add_dir(zipFile zfile, const char* dirname)
@@ -282,22 +306,18 @@ namespace ZIPP
         zipCloseFileInZip(zfile);
         return ret == ZIP_OK ? true : false;
     }
-    bool zipp::zip_read_buf(const std::string& filename, 
+    void zipp::zip_read_buf(const PATH& file, 
         std::string& buffer)
     {
-        if (filename.empty() || (filename.size() == 1 && filename[0] == '-'))
-        {
-            return false; 
-        }
-        std::ifstream stream{ filename, std::ios_base::in | std::ios_base::binary };
+        if (std::filesystem::is_directory(file)) return; 
+        std::ifstream stream{ file, std::ios_base::in | std::ios_base::binary };
         if (!stream) {
-            return {};
+            return;
         }
         stream.exceptions(std::ifstream::failbit);
         buffer = std::string{ std::istreambuf_iterator<char>(stream.rdbuf()),
                            std::istreambuf_iterator<char>() };
         stream.close();
-        return true;
     }
    
     bool zipp::zip_add_buf(zipFile zfile, 
@@ -308,48 +328,52 @@ namespace ZIPP
         int ret;
         if (zfile == NULL || buf == NULL || buflen == 0)
             return false;
-
+        zip_fileinfo* info; 
         ret = zipOpenNewFileInZip64(zfile, zfilename, NULL, NULL, 0, NULL, 0, NULL,
             Z_DEFLATED, Z_DEFAULT_COMPRESSION, (buflen > 0xffffffff) ? 1 : 0);
         if (ret != ZIP_OK)
             return false;
-
         ret = zipWriteInFileInZip(zfile, buf, buflen);
         zipCloseFileInZip(zfile);
         return ret == ZIP_OK ? true : false;
     }
 
-    bool zipp::createZip(const std::string& zipname, 
-        std::string folder)
+    bool zipp::createZip(const PATH& zipname, 
+        PATH folder, 
+        CALLBACK callback)
     {
         m_zipp_state = ZIPP_STATE::CREATE;
-        m_zip = zipOpen64(zipname.c_str(), APPEND_STATUS_CREATE);
+        m_zip = zipOpen64(zipname.string().c_str(), APPEND_STATUS_CREATE);
         if (!m_zip)
         {
             throw std::exception("Couldn't open for zipping");
         }
-       
-
         if (std::filesystem::is_directory(folder))
         {
-            if (folder[folder.size() - 1] != '\\')
-            {
-                folder += '\\';
-            }
             //recursion read all file of folder
             for (std::filesystem::recursive_directory_iterator i(folder), end; i != end; ++i)
             {
-                if (!is_directory(i->path()))
+                const auto& fullpath = i->path().string();
+                auto& subpath = fullpath.substr(folder.string().length(), fullpath.size());
+                if (subpath.size() != 0)
                 {
-                    auto fullpath = i->path().string();
-                    auto subpath = fullpath.substr(folder.length(), fullpath.size());
-                    std::string buffer;
-                    if (zip_read_buf(fullpath, buffer))
+                    if (subpath.front() == '\\'
+                        || subpath.front() == '/')
                     {
-                        zip_add_buf(m_zip,
-                            subpath.c_str(),
-                            (const unsigned char*)buffer.c_str(),
-                            (uint32_t)buffer.length());
+                        subpath.erase(0,1);
+                    }
+                }
+                if (is_directory(i->path()))
+                {
+                    zip_add_dir(m_zip,subpath.c_str()); 
+                }
+                else
+                {
+                    if (!is_directory(i->path()))
+                    {
+                        readBuffFromFile(fullpath,
+                            subpath,
+                            callback);
                     }
                 }
             }
@@ -360,14 +384,9 @@ namespace ZIPP
             if (std::filesystem::is_regular_file(folder))
             {
                 std::filesystem::path path(folder); 
-                std::string buffer; 
-                if (zip_read_buf(folder, buffer))
-                {
-                    zip_add_buf(m_zip,
-                        path.filename().string().c_str(),
-                        (const unsigned char*)buffer.c_str(),
-                        (uint32_t)buffer.length());
-                }
+                readBuffFromFile(folder.string(),
+                    path.filename().string(),
+                    callback); 
             }
         }
         release();

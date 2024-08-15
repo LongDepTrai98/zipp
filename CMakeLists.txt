@@ -35,9 +35,6 @@ add_executable(zip
     example/zip.cpp
 )
 
-add_executable(callback
-    example/callback.cpp
-)
 
 target_include_directories(${PROJECT_NAME} 
     PRIVATE lib
@@ -57,12 +54,6 @@ target_include_directories(zip
     PRIVATE include
 )
 
-target_include_directories(callback
-    PRIVATE lib
-    PRIVATE lib/zlib/include
-    PRIVATE include
-)
-
 target_link_libraries(unzip
     ${PROJECT_NAME}
     debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
@@ -74,13 +65,6 @@ target_link_libraries(zip
     debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
     optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib
 )
-
-target_link_libraries(callback
-    ${PROJECT_NAME}
-    debug  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/debug/lib/zlibd.lib
-    optimized  ${CMAKE_CURRENT_SOURCE_DIR}/lib/zlib/release/lib/zlib.lib
-)
-
 
 add_compile_definitions(NOMAIN)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

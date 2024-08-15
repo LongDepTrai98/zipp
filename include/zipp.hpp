@@ -6,6 +6,7 @@
 #include <minizip/unzip.h>
 #include <minizip/ioapi_mem.h>
 #include <fstream>
+#include <filesystem>
 #include <functional>
 
 
@@ -32,48 +33,55 @@ enum class ZIPP_STATE
 namespace ZIPP
 {
 	using CALLBACK = std::function<void(std::string,uint64_t)>; 
+	using PATH = std::filesystem::path; 
 	class zipp
 	{
 	public:
 		zipp();
 		~zipp();
 	public:
-		bool unZip(const std::string& path,
-			const std::string& directory,
+		bool unZip(const PATH& path,
+			const PATH& directory,
 			CALLBACK callback = nullptr);
 		bool unZipFromStream(std::istream& stream,
-			const std::string& directory, 
+			const PATH& directory, 
 			CALLBACK callback = nullptr); 
 		bool unZipFromBuffer(const std::string&,
-			const std::string&, 
+			const PATH&, 
 			CALLBACK callback = nullptr);
-		bool createZip(const std::string&, 
-			std::string folder);
+		bool createZip(const PATH&, 
+			PATH folder,
+			CALLBACK callback = nullptr);
 		void release();
 	protected:
 		//unzip
 		std::string getFileName(unzFile,
 			bool&);
-		bool isDir(unzFile zfile);
-		void createFile(const std::string&,
-			const std::string&); 
 		uint64_t fileSize(unzFile zfile);
 		ZIPP_STATUS parseBuffer(unzFile zfile, 
 			std::string& buffer);
 		ZIPP_STATUS readBuffer(unzFile zfile,
 			std::string& buffer);
 		ZIPP_STATUS create(unzFile&,
-			const std::string&,
+			const PATH&,
 			CALLBACK callback);
 		//create zip
 		bool zip_add_dir(zipFile zfile, 
 			const char* dirname);
-		bool zip_read_buf(const std::string& filename, 
-			std::string& buffer);
-		bool zip_add_buf(zipFile zfile, const char* zfilename, 
+		bool zip_add_buf(zipFile zfile, 
+			const char* zfilename, 
 			const unsigned char* buf, 
 			uint32_t buflen);
 		bool initWithStream(std::istream&);
+		bool isDir(unzFile zfile);
+		void zip_read_buf(const PATH& filename,
+			std::string& buffer);
+		void readBuffFromFile(const PATH&,
+			const PATH&,
+			CALLBACK&
+		);
+		void createFile(const PATH&,
+			const std::string&);
 	protected:
 		ourmemory_t m_zipmem;
 		zlib_filefunc_def m_filefunc;
