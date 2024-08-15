@@ -1,6 +1,6 @@
 # zipp
 a simple project C++ wrapper around minizip compression library
-## feature 
+## Feature 
 * Decompression from zip file
 * Decompression from memory
 * Create zip from folder
@@ -22,18 +22,16 @@ using namespace ZIPP;
 ``` C++
 int main()
 {
-	//Decompression from file 
 	std::string path = "meme.zip";
-	zipp zip; 
-	if (!zip.unZip(path, "unzip"))
+	zipp zip;
+	const auto& callback = [](std::string filename, uint64_t len) {
+		std::cout << "Reading file: " << filename << " " << len << " " << "Bytes" << std::endl;
+		};
+	if (!zip.unZip(path, 
+		"testunzip",
+		callback))
 	{
-		std::cout << "unzip failed"; 
-	}
-	//Decompression from memory 
-	std::string buffer = ReadFile(path); 
-	if (!zip.unZipFromBuffer(buffer, "buffer"))
-	{
-		std::cout << "unzip failed"; 
+		std::cout << "failed";
 	}
 	return 0; 
 }
@@ -42,9 +40,13 @@ int main()
 ``` C++
 int main()
 {
-	zipp zip;
-	//create zip from folder
-	if (!zip.createZip("test.zip", "meme"))
+	zipp zip; 
+	auto callback = [](std::string filename, uint32_t len) {
+		std::cout << "Reading file: " << filename << " " << len << " " << "Bytes" << std::endl;
+		}; 
+	if (!zip.createZip("testzip.zip",
+		"meme",
+		callback))
 	{
 		std::cout << "zipping fail"; 
 		return -1; 
